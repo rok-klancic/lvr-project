@@ -34,7 +34,6 @@ data Formula : Set where
     Andᶠ : Formula → Formula → Formula
     Orᶠ : Formula → Formula → Formula
 
-
 ---------------
 -- Problem 2 --
 ---------------
@@ -47,7 +46,6 @@ data NNF : Set where
     Litᴺ : Literal → NNF
     Andᴺ : NNF → NNF → NNF
     Orᴺ : NNF → NNF → NNF
-
 
 ---------------
 -- Problem 3 --
@@ -122,3 +120,59 @@ module Assoc (K : DecType) (V : Set) where
   ((k' , v') ∷ kvs) [ k ]≔ v with test-≡ K k k'
   ... | yes _ = ((k' , v) ∷ kvs)
   ... | no _ = (k' , v') ∷ (kvs [ k ]≔ v)
+
+
+-- DecType instance for ℕ
+ℕ-DecType : DecType
+ℕ-DecType = record
+  { carr = ℕ
+  ; test-≡ = test-≡-ℕ
+  }
+  where
+    test-≡-ℕ : (x y : ℕ) → Dec (x ≡ y)
+    test-≡-ℕ zero zero = yes refl
+    test-≡-ℕ zero (suc y) = no λ ()
+    test-≡-ℕ (suc x) zero = no λ ()
+    test-≡-ℕ (suc x) (suc y) with test-≡-ℕ x y
+    ... | yes p = yes (cong suc p)
+    ... | no np = no λ { refl → np refl }
+
+-- Open Assoc module for ℕ and Bool
+open Assoc ℕ-DecType Bool public
+
+-- Assignment type
+Assignment : Set
+Assignment = Assoc
+
+
+---------------
+-- Problem 5 --
+---------------
+
+-- Helper functions for Maybe Bool operations
+not-maybe : Maybe Bool → Maybe Bool
+not-maybe nothing = nothing
+not-maybe (just true) = just false
+not-maybe (just false) = just true
+
+and-maybe : Maybe Bool → Maybe Bool → Maybe Bool
+and-maybe (just true) (just true) = just true
+and-maybe (just true) (just false) = just false
+and-maybe (just false) _ = just false
+and-maybe _ (just false) = just false
+and-maybe nothing _ = nothing
+and-maybe _ nothing = nothing
+
+or-maybe : Maybe Bool → Maybe Bool → Maybe Bool
+or-maybe (just true) _ = just true
+or-maybe _ (just true) = just true
+or-maybe (just false) (just false) = just false
+or-maybe nothing _ = nothing
+or-maybe _ nothing = nothing
+
+-- Evaluation function
+eval : Assignment → Formula → Maybe Bool
+eval assn (Varᶠ x) = assn ‼ x
+eval assn (Negᶠ f) = not-maybe (eval assn f)
+eval assn (Andᶠ f₁ f₂) = and-maybe (eval assn f₁) (eval assn f₂)
+eval assn (Orᶠ f₁ f₂) = or-maybe (eval assn f₁) (eval assn f₂)
