@@ -176,3 +176,19 @@ eval assn (Varᶠ x) = assn ‼ x
 eval assn (Negᶠ f) = not-maybe (eval assn f)
 eval assn (Andᶠ f₁ f₂) = and-maybe (eval assn f₁) (eval assn f₂)
 eval assn (Orᶠ f₁ f₂) = or-maybe (eval assn f₁) (eval assn f₂)
+
+
+---------------
+-- Problem 6 --
+---------------
+
+-- Helper function to evaluate a literal
+eval-literal : Assignment → Literal → Maybe Bool
+eval-literal assn (Varᴸ x) = assn ‼ x
+eval-literal assn (NegVarᴸ x) = not-maybe (assn ‼ x)
+
+-- Evaluation function for NNF formulas
+eval-nnf : Assignment → NNF → Maybe Bool
+eval-nnf assn (Litᴺ lit) = eval-literal assn lit
+eval-nnf assn (Andᴺ f₁ f₂) = and-maybe (eval-nnf assn f₁) (eval-nnf assn f₂)
+eval-nnf assn (Orᴺ f₁ f₂) = or-maybe (eval-nnf assn f₁) (eval-nnf assn f₂)
