@@ -192,3 +192,33 @@ eval-nnf : Assignment → NNF → Maybe Bool
 eval-nnf assn (Litᴺ lit) = eval-literal assn lit
 eval-nnf assn (Andᴺ f₁ f₂) = and-maybe (eval-nnf assn f₁) (eval-nnf assn f₂)
 eval-nnf assn (Orᴺ f₁ f₂) = or-maybe (eval-nnf assn f₁) (eval-nnf assn f₂)
+
+
+---------------
+-- Problem 7 --
+---------------
+
+-- Disjunct represents a disjunction of literals (a clause)
+data Disjunct : Set where
+    Litᴰ : Literal → Disjunct
+    Orᴰ : Literal → Disjunct → Disjunct
+
+-- CNF represents a conjunction of disjuncts
+data CNF : Set where
+    Disjᶜ : Disjunct → CNF
+    Andᶜ : Disjunct → CNF → CNF
+
+
+---------------
+-- Problem 8 --
+---------------
+
+-- Helper function to evaluate a disjunct (clause)
+eval-disjunct : Assignment → Disjunct → Maybe Bool
+eval-disjunct assn (Litᴰ lit) = eval-literal assn lit
+eval-disjunct assn (Orᴰ lit d) = or-maybe (eval-literal assn lit) (eval-disjunct assn d)
+
+-- Evaluation function for CNF formulas
+eval-cnf : Assignment → CNF → Maybe Bool
+eval-cnf assn (Disjᶜ d) = eval-disjunct assn d
+eval-cnf assn (Andᶜ d cnf) = and-maybe (eval-disjunct assn d) (eval-cnf assn cnf)
