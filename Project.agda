@@ -222,3 +222,137 @@ eval-disjunct assn (Orᴰ lit d) = or-maybe (eval-literal assn lit) (eval-disjun
 eval-cnf : Assignment → CNF → Maybe Bool
 eval-cnf assn (Disjᶜ d) = eval-disjunct assn d
 eval-cnf assn (Andᶜ d cnf) = and-maybe (eval-disjunct assn d) (eval-cnf assn cnf)
+
+
+---------------
+-- Problem 9 --
+---------------
+
+-- Result type for SAT solver
+data SATResult : Set where
+  sat : Assignment → SATResult
+  unsat : SATResult
+
+-- Helper: Extract variable from a literal
+lit-var : Literal → ℕ
+lit-var (Varᴸ n) = n
+lit-var (NegVarᴸ n) = n
+
+-- Helper: Check if literal is positive
+is-positive : Literal → Bool
+is-positive (Varᴸ _) = true
+is-positive (NegVarᴸ _) = false
+
+-- Helper: Negate a literal
+negate-lit : Literal → Literal
+negate-lit (Varᴸ n) = NegVarᴸ n
+negate-lit (NegVarᴸ n) = Varᴸ n
+
+-- Helper: Check if two literals are equal
+lit-eq : Literal → Literal → Bool
+lit-eq (Varᴸ m) (Varᴸ n) with test-≡ ℕ-DecType m n
+... | yes _ = true
+... | no _ = false
+lit-eq (NegVarᴸ m) (NegVarᴸ n) with test-≡ ℕ-DecType m n
+... | yes _ = true
+... | no _ = false
+lit-eq _ _ = false
+
+-- Helper: Convert disjunct to list of literals
+disjunct-to-list : Disjunct → List Literal
+disjunct-to-list (Litᴰ lit) = lit ∷ []
+disjunct-to-list (Orᴰ lit d) = lit ∷ (disjunct-to-list d)
+
+-- Helper: Convert CNF to list of clauses (where each clause is a list of literals)
+cnf-to-clauses : CNF → List (List Literal)
+cnf-to-clauses (Disjᶜ d) = (disjunct-to-list d) ∷ []
+cnf-to-clauses (Andᶜ d cnf) = (disjunct-to-list d) ∷ (cnf-to-clauses cnf)
+
+-- Helper: Check if a clause is empty
+is-empty-clause : List Literal → Bool
+is-empty-clause [] = true
+is-empty-clause _ = false
+
+-- Helper: Check if any clause is empty (means UNSAT)
+has-empty-clause : List (List Literal) → Bool
+has-empty-clause [] = false
+has-empty-clause (c ∷ cs) with is-empty-clause c
+... | true = true
+... | false = has-empty-clause cs
+
+-- Helper: Check if all clauses are satisfied (empty list = all removed = SAT)
+all-satisfied : List (List Literal) → Bool
+all-satisfied [] = true
+all-satisfied _ = false
+
+-- Helper: Check if literal is in a clause
+lit-in-clause : Literal → List Literal → Bool
+lit-in-clause lit [] = false
+lit-in-clause lit (l ∷ ls) with lit-eq lit l
+... | true = true
+... | false = lit-in-clause lit ls
+
+-- Helper: Remove a literal from a clause
+remove-lit : Literal → List Literal → List Literal
+remove-lit lit [] = []
+remove-lit lit (l ∷ ls) with lit-eq lit l
+... | true = remove-lit lit ls
+... | false = l ∷ (remove-lit lit ls)
+
+-- Helper: Simplify clauses given a literal assignment
+-- Remove clauses containing the literal, and remove negated literal from remaining clauses
+simplify-clauses : Literal → List (List Literal) → List (List Literal)
+simplify-clauses lit [] = []
+simplify-clauses lit (clause ∷ rest) with lit-in-clause lit clause
+... | true = simplify-clauses lit rest  -- Clause is satisfied, remove it
+... | false = (remove-lit (negate-lit lit) clause) ∷ (simplify-clauses lit rest)
+
+-- Helper: Find a unit clause (clause with exactly one literal)
+find-unit-clause : List (List Literal) → Maybe Literal
+find-unit-clause [] = nothing
+find-unit-clause ((lit ∷ []) ∷ _) = just lit
+find-unit-clause (_ ∷ rest) = find-unit-clause rest
+
+-- Helper: Choose an unassigned variable from the clauses
+choose-variable : List (List Literal) → Maybe ℕ
+choose-variable [] = nothing
+choose-variable ((lit ∷ _) ∷ _) = just (lit-var lit)
+choose-variable ([] ∷ rest) = choose-variable rest
+
+-- Update assignment with a literal
+update-assn-with-lit : Assignment → Literal → Assignment
+update-assn-with-lit assn (Varᴸ n) = assn [ n ]≔ true
+update-assn-with-lit assn (NegVarᴸ n) = assn [ n ]≔ false
+
+-- Main DPLL algorithm with fuel (to ensure termination)
+dpll-fuel : ℕ → Assignment → List (List Literal) → SATResult
+dpll-fuel zero assn clauses = unsat  -- Out of fuel
+dpll-fuel (suc n) assn clauses with all-satisfied clauses
+... | true = sat assn  -- All clauses satisfied
+... | false with has-empty-clause clauses
+... | true = unsat  -- Empty clause means conflict
+... | false with find-unit-clause clauses
+... | just lit =
+  let assn' = update-assn-with-lit assn lit
+      clauses' = simplify-clauses lit clauses
+  in dpll-fuel n assn' clauses'
+... | nothing with choose-variable clauses
+... | just var =
+  let lit-pos = Varᴸ var
+      assn-pos = update-assn-with-lit assn lit-pos
+      clauses-pos = simplify-clauses lit-pos clauses
+      result-pos = dpll-fuel n assn-pos clauses-pos
+  in case result-pos of λ where
+       (sat a) → sat a
+       unsat → let lit-neg = NegVarᴸ var
+                   assn-neg = update-assn-with-lit assn lit-neg
+                   clauses-neg = simplify-clauses lit-neg clauses
+               in dpll-fuel n assn-neg clauses-neg
+... | nothing = sat assn  -- No more variables to assign
+
+-- Main SAT solver for CNF
+solve-cnf : CNF → SATResult
+solve-cnf cnf =
+  let clauses = cnf-to-clauses cnf
+      fuel = 1000  -- Adjust as needed
+  in dpll-fuel fuel [] clauses
