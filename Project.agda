@@ -1,4 +1,4 @@
-{-# OPTIONS --prop #-}
+   {-# OPTIONS --prop #-}
 
 module Project where
 
