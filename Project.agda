@@ -1,6 +1,6 @@
 {-# OPTIONS --prop #-}
 
-module ProjectMartin where
+module Project where
 
 open import Data.Empty           using (⊥; ⊥-elim)
 open import Data.Fin             using (Fin; zero; suc)
